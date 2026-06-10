@@ -70,6 +70,25 @@ appears, inspect `$TMPDIR/keen-debug.log`:
     `setActive` => it's Claude's draft preservation; keen is correct, close as
     not-a-bug (or document the behavior).
 
+## Third hypothesis (added 2026-06-10, untested)
+The observed text reads exactly like a keen haiku label, and the sidebar
+renders those directly left of the pane. Old keen held the terminal in
+mouse-tracking mode, so copying required Option-drag — whose selection was NOT
+bounded to the pane and could sweep in a sidebar row. Chain: Option-drag copy
+→ clipboard gains a haiku-ish line → stray Cmd-V into an input box → Claude
+preserves it as a draft → "phantom" text matching the session's own topic.
+This fits the topic-match detail better than mis-routing (mis-routed typing
+would be your words for a *different* session).
+
+## Impact of the tmux rototill (branch `tmux-spike`)
+The M5 architecture deletes the input-routing layer entirely: tmux delivers
+keys to the focused pane, background panes can't receive input, so
+hypothesis 1 (mis-routing) becomes structurally impossible — and tmux's
+bounded per-pane selection removes hypothesis 3's trigger. If phantom text
+still appears under the tmux build, it is hypothesis 2 (Claude's own draft
+preservation) and this closes as not-a-bug. The KEEN_DEBUG key logging no
+longer exists there (no keystrokes pass through keen to log).
+
 ## Next steps
 - [ ] Reproduce with KEEN_DEBUG on; capture the relevant log window.
 - [ ] Decide mis-routing vs. draft-preservation from the log.
