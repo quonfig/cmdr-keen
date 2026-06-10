@@ -10,13 +10,21 @@ import (
 	"github.com/quonfig/cmdr-keen/internal/reg"
 )
 
+// Focus must be unmistakable at a glance: typing j/k into a Claude composer
+// because the sidebar looked alive is the worst keen failure mode. The shared
+// tmux divider can't carry this signal (with two panes it always wears the
+// active style), so the sidebar itself changes shape: a thick bright border
+// and an inverted title badge when keys come here; a dimmed title and an
+// explicit "keys → claude" footer when they don't.
 var (
-	titleStyle  = lipgloss.NewStyle().Bold(true)
 	hintStyle   = lipgloss.NewStyle().Faint(true)
 	activeStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15"))
 
-	focusBorder   = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("12"))
-	unfocusBorder = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240"))
+	focusBorder   = lipgloss.NewStyle().Border(lipgloss.ThickBorder()).BorderForeground(lipgloss.Color("33"))
+	unfocusBorder = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("238"))
+
+	focusTitle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("231")).Background(lipgloss.Color("33"))
+	blurKeyStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("33"))
 
 	confirmStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("1")) // red — armed close prompt
 )
@@ -156,7 +164,11 @@ func RenderSidebar(l Layout, sessions []*reg.Session, active int, focused, confi
 	contentH := l.H - boxBorder
 	lines := make([]string, 0, contentH)
 
-	lines = append(lines, titleStyle.Render("sessions"), "")
+	title := hintStyle.Render("sessions")
+	if focused {
+		title = focusTitle.Render(" sessions ")
+	}
+	lines = append(lines, title, "")
 
 	for i, s := range sessions {
 		marker := "  "
@@ -211,6 +223,13 @@ func RenderSidebar(l Layout, sessions []*reg.Session, active int, focused, confi
 		hintStyle.Render("⏎ to claude · n new · x close"),
 		hintStyle.Render("drag selects · release copies"),
 		hintStyle.Render("q detach (sessions live on)"),
+	}
+	if !focused { // keys go to claude — say so instead of showing dead bindings
+		hints = []string{
+			hintStyle.Render("drag selects · release copies"),
+			"",
+			blurKeyStyle.Render("keys → claude · ^k = here"),
+		}
 	}
 	if confirming { // an 'x' is armed — replace the footer with a clear prompt
 		hints = []string{

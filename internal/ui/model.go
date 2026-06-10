@@ -175,7 +175,7 @@ func (m *Model) handleKey(k tea.KeyMsg) tea.Cmd {
 		rune1 = string(k.Runes[0])
 	}
 	switch {
-	case k.Type == tea.KeyEnter:
+	case k.Type == tea.KeyEnter, k.Type == tea.KeyTab:
 		m.mgr.FocusActive() // hand keyboard focus to the session pane
 	case k.Type == tea.KeyUp, rune1 == "k":
 		m.mgr.Activate(m.mgr.ActiveIndex() - 1)
