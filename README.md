@@ -19,7 +19,8 @@ buys three things the old built-in terminal emulator couldn't:
 
 ![keen running several Claude Code sessions behind one screen](docs/images/cmdr-keen.png)
 
-See [`docs/spec.md`](docs/spec.md) for the full design and milestones.
+See [`docs/spec.md`](docs/spec.md) for the full design and milestones, and
+[`CHANGELOG.md`](CHANGELOG.md) for what each release shipped.
 
 ## Install
 
@@ -40,7 +41,7 @@ To **upgrade** later, re-run the same command, or pin a specific release:
 
 ```sh
 go install github.com/quonfig/cmdr-keen/cmd/keen@latest   # newest tag
-go install github.com/quonfig/cmdr-keen/cmd/keen@v0.1.0   # a fixed version
+go install github.com/quonfig/cmdr-keen/cmd/keen@v0.2.0   # a fixed version
 ```
 
 `go install` is per-user — every user runs it for themselves. To install once
@@ -88,9 +89,9 @@ so your global `~/.claude` is never modified.
 |---|---|
 | Toggle focus: sidebar ⇄ session | **Ctrl-K** (or **Cmd-K**, see setup below) |
 | Move selection (sidebar focused) | `j`/`k` or ↑/↓ |
-| Jump into the session | `Enter` |
+| Jump into the session | `Enter` or `Tab` |
 | New session | `n` |
-| Close session | `x` |
+| Close session | `x`, then `x`/`y` to confirm |
 | Jump to session N | `1`–`9` |
 | Detach — sessions keep running | `q` |
 | Switch to a session | click its row |
@@ -98,15 +99,26 @@ so your global `~/.claude` is never modified.
 When the session is focused, everything (typing, paste, mouse scroll/click) goes
 straight to Claude. Only the prefix key is intercepted.
 
+### Where your keys go
+
+The sidebar's frame always tells you. A **solid thick blue box** around the
+sidebar means keys drive the session list. When the session has them instead,
+the frame opens like a **notebook tab**: the sidebar's right rail breaks and a
+blue outline wraps the active session's entry, aimed at its pane — and the
+footer says it outright (`keys → claude · ^k = here`).
+
 ### Copying and pasting
 
 Click and drag to select text — the selection is bounded to the pane you're in,
-and it lands on the system clipboard when you release (tmux `set-clipboard` via
-OSC 52). No modifier keys needed, and it works the same inside Cursor/VS Code
-terminals. The mouse wheel scrolls a pane's history.
+and it lands on the system clipboard **when you release** (tmux `set-clipboard`
+via OSC 52). The highlight vanishing on release is the copy happening — there's
+no Cmd-C step. No modifier keys needed, and it works the same inside
+Cursor/VS Code terminals. The mouse wheel scrolls a pane's history.
 
-You can **drag files into** the session to insert their paths, but **pasting
-files in may not work** — drag them in instead.
+**Pasting text** is plain Cmd-V. **Pasting an image** is **Ctrl-V** — terminals
+only transmit text, so Claude Code binds Ctrl-V and reads the image straight
+off the system clipboard; tmux is not in the way. You can also **drag files
+into** a session to insert their paths.
 
 ## Status colors
 
