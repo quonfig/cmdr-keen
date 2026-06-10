@@ -31,26 +31,30 @@ func ComputeLayout(w, h int) Layout {
 // the header and the bottom-pinned hints take their share. The beads section
 // and the legend compete for these rows (beads win — see showLegend).
 func (l Layout) availBelowList(sessions int) int {
-	return l.H - boxBorder - sidebarHeader - sessions*linesPerSession - hintRows
+	return l.H - boxBorder - sidebarHeader - sessions*sessionStride - hintRows
 }
 
 // beadsHeader is the rows the beads section spends before any bead shows: a
 // blank separator plus the "bd ready" title row.
 const beadsHeader = 2
 
-// BeadRowsToShow is how many ready-bead rows fit below the session list, 0
-// meaning the section hides entirely (a header with no rows is dead weight).
-// Capped at maxBeadRows however tall the pane is.
-func (l Layout) BeadRowsToShow(sessions, beads int) int {
+// beadStride is the rows one bead draws: the bd-list-style id line plus the
+// faint title line beneath it (see renderBeadRow).
+const beadStride = 2
+
+// BeadsToShow is how many ready beads fit below the session list, 0 meaning
+// the section hides entirely (a header with no entries is dead weight).
+// Capped at maxBeads however tall the pane is.
+func (l Layout) BeadsToShow(sessions, beads int) int {
 	if beads == 0 {
 		return 0
 	}
-	n := l.availBelowList(sessions) - beadsHeader
+	n := (l.availBelowList(sessions) - beadsHeader) / beadStride
 	if n > beads {
 		n = beads
 	}
-	if n > maxBeadRows {
-		n = maxBeadRows
+	if n > maxBeads {
+		n = maxBeads
 	}
 	if n < 1 {
 		return 0
@@ -59,12 +63,12 @@ func (l Layout) BeadRowsToShow(sessions, beads int) int {
 }
 
 // showLegend reports whether the color key still fits once the session list
-// and the beads section (beadRows as returned by BeadRowsToShow) have taken
+// and the beads section (beadsShown as returned by BeadsToShow) have taken
 // their rows. Live work outranks documentation, so the legend yields first.
-func (l Layout) showLegend(sessions, beadRows int) bool {
+func (l Layout) showLegend(sessions, beadsShown int) bool {
 	a := l.availBelowList(sessions)
-	if beadRows > 0 {
-		a -= beadRows + beadsHeader
+	if beadsShown > 0 {
+		a -= beadsShown*beadStride + beadsHeader
 	}
 	return a >= legendHeight()
 }
@@ -75,22 +79,27 @@ func (l Layout) sessionRow0() int {
 	return 1 + sidebarHeader
 }
 
-// linesPerSession is how many rows one session occupies. RenderSidebar draws
-// three — topic, current task, phase+context bar — so hit-testing steps by
-// three to stay aligned.
+// linesPerSession is how many rows of text one session draws — topic, current
+// task, phase+context bar.
 const linesPerSession = 3
 
+// sessionStride is linesPerSession plus the separator row that trails every
+// session. The separator is blank except around the active session when the
+// sidebar is blurred, where frame turns it into the tab outline's top/bottom
+// edge. It exists in both focus states so click geometry never shifts.
+const sessionStride = linesPerSession + 1
+
 // SessionIndexAt returns the session index a click landed on, or -1 if the
-// click wasn't on a session entry.
+// click wasn't on a session entry (separator rows don't count).
 func (l Layout) SessionIndexAt(x, y, count int) int {
 	if x < 0 || x >= l.W {
 		return -1
 	}
 	rel := y - l.sessionRow0()
-	if rel < 0 {
+	if rel < 0 || rel%sessionStride >= linesPerSession {
 		return -1
 	}
-	idx := rel / linesPerSession
+	idx := rel / sessionStride
 	if idx >= count {
 		return -1
 	}

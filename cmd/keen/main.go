@@ -218,17 +218,12 @@ set -g renumber-windows off
 # the no-bell / no-notification decision stands.
 set -g set-titles on
 set -g set-titles-string "keen"
-# Tab-style focus: every pane gets a top border line (its own real estate —
-# the shared divider alone can't signal focus with two panes). When a session
-# pane has the keys, its top line and the divider go blue, like the active
-# tab; when the sidebar has them, all tmux lines dim and the sidebar's own
-# (lipgloss) border lights up instead. The hook flips the color on each focus
-# change; the boot default is dim because the sidebar starts focused.
-set -g pane-border-status top
-set -g pane-border-format ''
-set -g pane-border-style "fg=colour236"
-set -g pane-active-border-style "fg=colour236"
-set-hook -g pane-focus-in 'if -F "#{@keen-sidebar}" "set -w pane-active-border-style fg=colour236" "set -w pane-active-border-style fg=colour33"'
+# keen draws all chrome itself — the sidebar hand-draws its frame and the
+# active-session tab cutout (see ui.frame) — so tmux renders nothing visible.
+# The divider column between panes is mandatory; painting it near-background
+# turns it into the invisible gutter the tab cutout opens across.
+set -g pane-border-style "fg=colour234"
+set -g pane-active-border-style "fg=colour234"
 # The keen prefix: C-k hops between the sidebar and the session pane. Bound at
 # the tmux layer so it never reaches Claude — same guarantee as old keen.
 bind -n C-k select-pane -t :.+

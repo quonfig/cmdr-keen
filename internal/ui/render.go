@@ -11,17 +11,18 @@ import (
 )
 
 // Focus must be unmistakable at a glance: typing j/k into a Claude composer
-// because the sidebar looked alive is the worst keen failure mode. The shared
-// tmux divider can't carry this signal (with two panes it always wears the
-// active style), so the sidebar itself changes shape: a thick bright border
-// and an inverted title badge when keys come here; a dimmed title and an
-// explicit "keys → claude" footer when they don't.
+// because the sidebar looked alive is the worst keen failure mode. tmux
+// renders no visible chrome (its mandatory divider column is painted to the
+// background); keen hand-draws every edge instead — see frame. Focused: a
+// solid thick blue box around the sidebar. Blurred: a dim rail along the
+// right edge, broken open beside the active session, whose blue outline wraps
+// the entry like a notebook tab opening toward its pane.
 var (
 	hintStyle   = lipgloss.NewStyle().Faint(true)
 	activeStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15"))
 
-	focusBorder   = lipgloss.NewStyle().Border(lipgloss.ThickBorder()).BorderForeground(lipgloss.Color("33"))
-	unfocusBorder = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("238"))
+	frameStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("33"))  // focused box + tab outline
+	railStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("238")) // blurred right rail
 
 	focusTitle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("231")).Background(lipgloss.Color("33"))
 	blurKeyStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("33"))
@@ -159,19 +160,66 @@ func statusGlyph(st reg.Status) string {
 }
 
 // beadIDStyle colors the issue id in a beads row so it reads apart from the
-// faint title beside it.
+// faint title beneath it.
 var beadIDStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("6")) // cyan
 
-// renderBeadRow draws one ready issue — colored id, faint title — within w
-// columns. The id wins when space is tight; a title fragment under two cells
-// isn't worth its separator.
-func renderBeadRow(b Bead, w int) string {
-	id := truncate(b.ID, w)
-	rest := w - len([]rune(id)) - 1
-	if rest < 2 {
-		return beadIDStyle.Render(id)
+// beadGlyph mirrors bd's own status circles (○ open, ◐ in_progress, ● blocked,
+// ✓ closed, ❄ deferred). bd ready only emits open issues today; the rest are
+// mapped defensively so a future bd can't render garbage.
+func beadGlyph(status string) string {
+	switch status {
+	case "in_progress":
+		return "◐"
+	case "blocked":
+		return "●"
+	case "closed":
+		return "✓"
+	case "deferred":
+		return "❄"
+	default:
+		return "○"
 	}
-	return beadIDStyle.Render(id) + " " + hintStyle.Render(truncate(b.Title, rest))
+}
+
+// priorityBadge renders bd's "● Pn" marker, hotter colors for higher priority
+// (P0 bold red → P4 faint).
+func priorityBadge(p int) string {
+	var style lipgloss.Style
+	switch {
+	case p <= 0:
+		style = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("1")) // bold red
+	case p == 1:
+		style = lipgloss.NewStyle().Foreground(lipgloss.Color("1")) // red
+	case p == 2:
+		style = lipgloss.NewStyle().Foreground(lipgloss.Color("3")) // yellow
+	case p == 3:
+		style = lipgloss.NewStyle().Foreground(lipgloss.Color("4")) // blue
+	default:
+		style = hintStyle
+	}
+	return style.Render(fmt.Sprintf("● P%d", p))
+}
+
+// beadBadgeW is the columns the priority badge needs beside the id: a space
+// plus "● P4".
+const beadBadgeW = 5
+
+// renderBeadRow draws one ready issue as two lines echoing bd list's row
+// style — status circle, id, priority badge, then the faint title beneath:
+//
+//	○ cmdr-keen-gu3 ● P4
+//	  Placeholder: second demo bead
+//
+// The id wins when space is tight: it truncates to leave the badge room, and
+// the badge drops entirely before the id loses its tail to it.
+func renderBeadRow(b Bead, w int) (string, string) {
+	id := truncate(b.ID, w-2-beadBadgeW)
+	line1 := hintStyle.Render(beadGlyph(b.Status)) + " " + beadIDStyle.Render(id)
+	if len([]rune(b.ID)) <= w-2-beadBadgeW { // id intact — badge fits beside it
+		line1 += " " + priorityBadge(b.Priority)
+	}
+	line2 := "  " + hintStyle.Render(truncate(b.Title, w-2))
+	return line1, line2
 }
 
 // RenderSidebar draws the fixed-order session list, full pane height. When
@@ -186,7 +234,13 @@ func RenderSidebar(l Layout, sessions []*reg.Session, beads []Bead, active int, 
 	}
 	lines = append(lines, title, "")
 
+	// tabTop/tabBot bracket the active session's rows when the sidebar is
+	// blurred; frame draws the tab outline's edges on those lines.
+	tabTop, tabBot := -1, -1
 	for i, s := range sessions {
+		if i == active && !focused {
+			tabTop = len(lines) - 1 // header blank or the previous separator
+		}
 		marker := "  "
 		if i == active {
 			marker = "› "
@@ -220,23 +274,31 @@ func RenderSidebar(l Layout, sessions []*reg.Session, beads []Bead, active int, 
 			}
 		}
 		lines = append(lines, row3)
+
+		// Trailing separator (sessionStride row 4): blank breathing room, and
+		// the canvas for the tab outline's bottom edge when i is active.
+		lines = append(lines, "")
+		if i == active && !focused {
+			tabBot = len(lines) - 1
+		}
 	}
 
 	// Ready work from the bd tracker, just below the list — what a freed-up
-	// session could pick up next. Truncated to fit (top maxBeadRows at most);
+	// session could pick up next. Truncated to fit (top maxBeads at most);
 	// the header carries the true total.
-	beadRows := l.BeadRowsToShow(len(sessions), len(beads))
-	if beadRows > 0 {
+	beadsShown := l.BeadsToShow(len(sessions), len(beads))
+	if beadsShown > 0 {
 		header := fmt.Sprintf("bd ready · %d", len(beads))
 		lines = append(lines, "", hintStyle.Render(truncate(header, l.SidebarW)))
-		for _, b := range beads[:beadRows] {
-			lines = append(lines, renderBeadRow(b, l.SidebarW))
+		for _, b := range beads[:beadsShown] {
+			line1, line2 := renderBeadRow(b, l.SidebarW)
+			lines = append(lines, line1, line2)
 		}
 	}
 
 	// Color key for the status glyphs, below the work sections — handy when
 	// getting started. Yields to sessions and beads on short terminals.
-	if l.showLegend(len(sessions), beadRows) {
+	if l.showLegend(len(sessions), beadsShown) {
 		lines = append(lines, "")
 		for _, e := range legend {
 			lines = append(lines, statusGlyph(e.st)+" "+hintStyle.Render(e.label))
@@ -273,11 +335,52 @@ func RenderSidebar(l Layout, sessions []*reg.Session, beads []Bead, active int, 
 	}
 	lines = append(lines, hints...)
 
-	box := unfocusBorder
-	if focused {
-		box = focusBorder
+	return frame(l, lines, focused, tabTop, tabBot)
+}
+
+// frame hand-draws the sidebar border — lipgloss boxes can't do the one thing
+// the design needs, a gap, so keen owns every edge cell. Focused: a solid
+// thick blue box (keys are here). Blurred: a dim rail down the right edge —
+// the fence line toward the session pane — broken open beside the active
+// session, whose blue outline wraps the entry like a notebook tab. tabTop and
+// tabBot are the content-line indexes of the outline's edge rows (-1 = none;
+// both separator rows, so overwriting them with ─ fill loses nothing).
+func frame(l Layout, content []string, focused bool, tabTop, tabBot int) string {
+	fill := strings.Repeat("─", l.SidebarW)
+	blank := strings.Repeat(" ", l.SidebarW+1)
+	rows := make([]string, 0, len(content)+boxBorder)
+
+	edge := func() string { // blurred top/bottom rows carry only the rail
+		return blank + railStyle.Render("│")
 	}
-	return box.Width(l.SidebarW).Height(contentH).Render(strings.Join(lines, "\n"))
+	if focused {
+		rows = append(rows, frameStyle.Render("┏"+strings.Repeat("━", l.SidebarW)+"┓"))
+	} else {
+		rows = append(rows, edge())
+	}
+	for i, line := range content {
+		if pad := l.SidebarW - lipgloss.Width(line); pad > 0 {
+			line += strings.Repeat(" ", pad)
+		}
+		switch {
+		case focused:
+			rows = append(rows, frameStyle.Render("┃")+line+frameStyle.Render("┃"))
+		case i == tabTop:
+			rows = append(rows, frameStyle.Render("╭"+fill+"╯"))
+		case i == tabBot:
+			rows = append(rows, frameStyle.Render("╰"+fill+"╮"))
+		case tabTop >= 0 && i > tabTop && i < tabBot:
+			rows = append(rows, frameStyle.Render("│")+line+" ") // open toward the pane
+		default:
+			rows = append(rows, " "+line+railStyle.Render("│"))
+		}
+	}
+	if focused {
+		rows = append(rows, frameStyle.Render("┗"+strings.Repeat("━", l.SidebarW)+"┛"))
+	} else {
+		rows = append(rows, edge())
+	}
+	return strings.Join(rows, "\n")
 }
 
 // firstNonEmpty returns the first non-empty string, or "" if all are empty.

@@ -26,9 +26,10 @@ func TestSessionIndexAt(t *testing.T) {
 	}{
 		{"first row of first session", 5, row0, 3, 0},
 		{"last row of first session", 5, row0 + linesPerSession - 1, 3, 0},
-		{"first row of second session", 5, row0 + linesPerSession, 3, 1},
-		{"third session", 5, row0 + 2*linesPerSession, 3, 2},
-		{"below the list", 5, row0 + 3*linesPerSession, 3, -1},
+		{"separator under first session", 5, row0 + linesPerSession, 3, -1},
+		{"first row of second session", 5, row0 + sessionStride, 3, 1},
+		{"third session", 5, row0 + 2*sessionStride, 3, 2},
+		{"below the list", 5, row0 + 3*sessionStride, 3, -1},
 		{"header row misses", 5, 0, 3, -1},
 		{"x out of pane", l.W + 1, row0, 3, -1},
 	}

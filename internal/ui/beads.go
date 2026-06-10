@@ -19,15 +19,17 @@ const (
 	// timescale of finished sessions, not keystrokes, and each poll execs bd.
 	beadsPollInterval = time.Minute
 
-	// maxBeadRows caps the section however tall the pane is; past the top ten
-	// you'd reach for `bd ready` itself.
-	maxBeadRows = 10
+	// maxBeads caps the section at ten beads however tall the pane is; past
+	// the top ten you'd reach for `bd ready` itself.
+	maxBeads = 10
 )
 
 // Bead is one ready issue, as `bd ready --json` reports it.
 type Bead struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Status   string `json:"status"`
+	Priority int    `json:"priority"`
 }
 
 // beadsMsg delivers a poll result to the update loop. An empty beads list

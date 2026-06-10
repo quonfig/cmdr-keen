@@ -8,7 +8,7 @@ import (
 func TestParseBeads(t *testing.T) {
 	raw := `[
 		{"id":"qfg-2t2d","title":"Native Apple-platform SDK","status":"open","priority":1},
-		{"id":"qfg-dcz6","title":"sdk-ruby: zero-ms bootstrap","status":"open","priority":1}
+		{"id":"qfg-dcz6","title":"sdk-ruby: zero-ms bootstrap","status":"open","priority":3}
 	]`
 	beads := parseBeads([]byte(raw))
 	if len(beads) != 2 {
@@ -16,6 +16,9 @@ func TestParseBeads(t *testing.T) {
 	}
 	if beads[0].ID != "qfg-2t2d" || beads[0].Title != "Native Apple-platform SDK" {
 		t.Errorf("first bead = %+v, want id qfg-2t2d / SDK title", beads[0])
+	}
+	if beads[1].Status != "open" || beads[1].Priority != 3 {
+		t.Errorf("second bead = %+v, want status open / priority 3", beads[1])
 	}
 }
 
@@ -42,9 +45,10 @@ func TestBeadsPollStopsWithoutBD(t *testing.T) {
 	}
 }
 
-func TestBeadRowsToShow(t *testing.T) {
-	tall := ComputeLayout(32, 60) // avail(1 session) = 60-2-2-3-3 = 50
-	short := ComputeLayout(32, 18)
+func TestBeadsToShow(t *testing.T) {
+	tall := ComputeLayout(32, 60)  // avail(1 session) = 60-2-2-4-3 = 49
+	mid := ComputeLayout(32, 20)   // avail(2) = 20-2-2-8-3 = 5
+	short := ComputeLayout(32, 18) // avail(2) = 3
 	cases := []struct {
 		name     string
 		l        Layout
@@ -55,39 +59,50 @@ func TestBeadRowsToShow(t *testing.T) {
 		{"no beads, no section", tall, 1, 0, 0},
 		{"few beads all fit", tall, 1, 3, 3},
 		{"caps at ten", tall, 1, 14, 10},
-		// short pane: contentH 16, avail(2) = 16-2-3-6 = 5 → 3 bead rows
-		{"short pane truncates harder", short, 2, 10, 3},
-		// no room for even one row → hide entirely (header alone is useless)
+		// mid pane: 5 rows minus header 2 = 3 → one 2-line bead
+		{"mid pane truncates harder", mid, 2, 10, 1},
+		// 3 rows minus header 2 = 1 → not even one bead → hide entirely
+		{"short pane hides section", short, 2, 10, 0},
 		{"crowded pane hides section", short, 4, 10, 0},
 	}
 	for _, c := range cases {
-		if got := c.l.BeadRowsToShow(c.sessions, c.beads); got != c.want {
-			t.Errorf("%s: BeadRowsToShow(%d,%d) = %d, want %d", c.name, c.sessions, c.beads, got, c.want)
+		if got := c.l.BeadsToShow(c.sessions, c.beads); got != c.want {
+			t.Errorf("%s: BeadsToShow(%d,%d) = %d, want %d", c.name, c.sessions, c.beads, got, c.want)
 		}
 	}
 }
 
 func TestShowLegendYieldsToBeads(t *testing.T) {
-	// avail(1) = 30-2-2-3-3 = 20: legend fits alone, and with a small beads
-	// section, but not once beads take 10+2 rows leaving 8... (8 ≥ 5 still
-	// shows). Use a tighter pane: avail(1)=12 → beads 10+2 leaves 0 → no legend.
-	l := ComputeLayout(32, 22) // contentH 20, avail(1) = 20-2-3-3 = 12
+	// avail(1) = 22-2-2-4-3 = 11: legend (5 rows) fits alone, but not once
+	// four 2-line beads plus the 2-row header take 10 of the 11 rows.
+	l := ComputeLayout(32, 22)
 	if !l.showLegend(1, 0) {
 		t.Error("legend should fit with no beads section")
 	}
-	if l.showLegend(1, 10) {
+	if shown := l.BeadsToShow(1, 10); shown != 4 {
+		t.Fatalf("BeadsToShow(1,10) = %d, want 4 — legend case below assumes it", shown)
+	}
+	if l.showLegend(1, 4) {
 		t.Error("legend should yield when the beads section fills the space")
 	}
 }
 
-func TestRenderBeadRowTruncates(t *testing.T) {
-	b := Bead{ID: "qfg-2t2d", Title: strings.Repeat("x", 50)}
-	row := renderBeadRow(b, 30)
-	if w := visibleWidth(row); w > 30 {
-		t.Errorf("bead row renders %d columns, want <= 30", w)
+func TestRenderBeadRowTwoLines(t *testing.T) {
+	// Each bead draws like a bd list row split over two lines:
+	//   ○ cmdr-keen-gu3 ● P4
+	//     Placeholder: second demo bead
+	b := Bead{ID: "cmdr-keen-gu3", Title: strings.Repeat("x", 50), Status: "open", Priority: 4}
+	line1, line2 := renderBeadRow(b, 30)
+	for _, ln := range []string{line1, line2} {
+		if w := visibleWidth(ln); w > 30 {
+			t.Errorf("bead line %q renders %d columns, want <= 30", ln, w)
+		}
 	}
-	if !strings.Contains(row, "qfg-2t2d") {
-		t.Errorf("bead row %q lost the id", row)
+	if !strings.Contains(line1, "○") || !strings.Contains(line1, "cmdr-keen-gu3") || !strings.Contains(line1, "P4") {
+		t.Errorf("line1 %q missing status circle, id, or priority badge", line1)
+	}
+	if !strings.Contains(line2, "xxx") {
+		t.Errorf("line2 %q lost the title", line2)
 	}
 }
 
