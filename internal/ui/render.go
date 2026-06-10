@@ -203,21 +203,28 @@ func RenderSidebar(l Layout, sessions []*reg.Session, active int, focused, confi
 		}
 	}
 
-	// Pin the hint to the bottom of the box. Copy needs no hint anymore — tmux
-	// owns the mouse, so plain click-drag selects within a pane and copies on
-	// release. The second line sells the new superpower instead.
-	hint := hintStyle.Render("⏎ to claude · n new · x close")
-	hint2 := hintStyle.Render("q detach (sessions live on)")
-	if confirming { // an 'x' is armed — replace the footer with a clear prompt
-		hint = confirmStyle.Render("close session?")
-		hint2 = confirmStyle.Render("x confirm · any cancel")
+	// Pin the hints to the bottom of the box. The copy line earns its row:
+	// tmux owns the mouse, so the highlight vanishes the moment you release —
+	// which reads as "selection broken" unless you know release IS the copy
+	// (it lands on the system clipboard; Cmd-C never applies).
+	hints := []string{
+		hintStyle.Render("⏎ to claude · n new · x close"),
+		hintStyle.Render("drag selects · release copies"),
+		hintStyle.Render("q detach (sessions live on)"),
 	}
-	used := len(lines) + 2
+	if confirming { // an 'x' is armed — replace the footer with a clear prompt
+		hints = []string{
+			"",
+			confirmStyle.Render("close session?"),
+			confirmStyle.Render("x confirm · any cancel"),
+		}
+	}
+	used := len(lines) + hintRows
 	for used < contentH {
 		lines = append(lines, "")
 		used++
 	}
-	lines = append(lines, hint, hint2)
+	lines = append(lines, hints...)
 
 	box := unfocusBorder
 	if focused {

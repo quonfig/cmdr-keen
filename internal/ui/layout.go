@@ -15,6 +15,7 @@ type Layout struct {
 const (
 	sidebarHeader = 2 // "sessions" title + one blank line
 	boxBorder     = 2 // a lipgloss border adds 1 cell on each side
+	hintRows      = 3 // footer hint lines RenderSidebar pins to the bottom
 )
 
 // ComputeLayout derives geometry from the sidebar pane size.
@@ -30,7 +31,7 @@ func ComputeLayout(w, h int) Layout {
 // pushing any session or the bottom hint out of the box.
 func (l Layout) showLegend(count int) bool {
 	contentH := l.H - boxBorder
-	need := sidebarHeader + legendHeight() + count*linesPerSession + 2 // +2 for the hint rows
+	need := sidebarHeader + legendHeight() + count*linesPerSession + hintRows
 	return contentH >= need
 }
 
