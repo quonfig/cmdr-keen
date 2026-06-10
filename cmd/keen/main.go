@@ -213,8 +213,10 @@ set -g focus-events on
 set -g history-limit 50000
 set -g window-size latest
 set -g renumber-windows off
+# Both divider styles stay dim: the sidebar's own border already shows focus
+# (blue = sidebar, grey = session), so a blue tmux divider would double up.
 set -g pane-border-style "fg=colour236"
-set -g pane-active-border-style "fg=colour32"
+set -g pane-active-border-style "fg=colour236"
 # The keen prefix: C-k hops between the sidebar and the session pane. Bound at
 # the tmux layer so it never reaches Claude — same guarantee as old keen.
 bind -n C-k select-pane -t :.+
