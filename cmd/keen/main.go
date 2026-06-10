@@ -213,6 +213,11 @@ set -g focus-events on
 set -g history-limit 50000
 set -g window-size latest
 set -g renumber-windows off
+# Fleet summary in the outer terminal's tab title (e.g. "keen · 2◐ 3● 4✓"):
+# the sidebar rewrites set-titles-string as statuses change. Visual only —
+# the no-bell / no-notification decision stands.
+set -g set-titles on
+set -g set-titles-string "keen"
 # Tab-style focus: every pane gets a top border line (its own real estate —
 # the shared divider alone can't signal focus with two panes). When a session
 # pane has the keys, its top line and the divider go blue, like the active

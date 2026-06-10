@@ -315,6 +315,17 @@ func (m *Manager) Close(i int) {
 // tmux server; `keen` reattaches to exactly this state.
 func (m *Manager) Detach() { _ = m.T.DetachAll(SessionName) }
 
+// SetTerminalTitle pushes title to the outer terminal's tab via tmux's
+// set-titles machinery. The generated config turns set-titles on, but a
+// server booted before that config existed has it off — re-asserting it here
+// (calls are rare: the title string is deduped upstream) makes the feature
+// survive upgrades without a keen kill. The string is a tmux format, but
+// fleet titles never contain '#', so it passes through literally.
+func (m *Manager) SetTerminalTitle(title string) {
+	_, _ = m.T.Run("set-option", "-g", "set-titles", "on")
+	_, _ = m.T.Run("set-option", "-g", "set-titles-string", title)
+}
+
 // MarkStatus applies a hook-reported status, with the Done-precedence backstop
 // (a "waiting" that arrives while Done is really the idle ping — see
 // internal/hook). Persists so a restarted sidebar shows the right colors.

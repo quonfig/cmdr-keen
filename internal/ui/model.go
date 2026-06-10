@@ -59,6 +59,12 @@ type Model struct {
 	// the close ('x'/'y') or cancels it.
 	confirmClose bool
 
+	// beads is the latest `bd ready` poll result (see beads.go); lastTitle is
+	// the fleet summary most recently pushed to the terminal title, kept to
+	// skip redundant tmux calls.
+	beads     []Bead
+	lastTitle string
+
 	initialCwd  string
 	initialArgs []string
 }
@@ -67,7 +73,7 @@ func NewModel(mgr *reg.Manager, initialCwd string, initialArgs []string) *Model 
 	return &Model{mgr: mgr, focused: true, initialCwd: initialCwd, initialArgs: initialArgs}
 }
 
-func (m *Model) Init() tea.Cmd { return tick() }
+func (m *Model) Init() tea.Cmd { return tea.Batch(tick(), fetchBeadsNow(m.initialCwd)) }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -98,7 +104,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tickMsg:
 		m.mgr.Prune() // drop sessions whose pane died; repaint refreshes timers
+		m.syncTitle()
 		return m, tick()
+
+	case beadsMsg:
+		m.beads = msg.beads
+		return m, fetchBeadsLater(m.initialCwd)
 
 	case hooks.StatusEventMsg:
 		if st, ok := statusForEvent(msg.Event); ok {
@@ -106,6 +117,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.mgr.SetContextTokens(msg.Session, msg.Tokens)
 		m.mgr.SetTranscript(msg.Session, msg.Transcript)
+		m.syncTitle()
 		return m, m.maybeSummarize(msg)
 
 	case summaryMsg:
@@ -231,5 +243,5 @@ func (m *Model) View() string {
 	if !m.ready {
 		return "starting keen…"
 	}
-	return RenderSidebar(m.layout, m.mgr.Sessions(), m.mgr.ActiveIndex(), m.focused, m.confirmClose)
+	return RenderSidebar(m.layout, m.mgr.Sessions(), m.beads, m.mgr.ActiveIndex(), m.focused, m.confirmClose)
 }

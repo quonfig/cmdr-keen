@@ -27,12 +27,46 @@ func ComputeLayout(w, h int) Layout {
 	return Layout{W: w, H: h, SidebarW: sw}
 }
 
-// showLegend reports whether the color key fits below the session list without
-// pushing any session or the bottom hint out of the box.
-func (l Layout) showLegend(count int) bool {
-	contentH := l.H - boxBorder
-	need := sidebarHeader + legendHeight() + count*linesPerSession + hintRows
-	return contentH >= need
+// availBelowList is how many content rows remain under the session list once
+// the header and the bottom-pinned hints take their share. The beads section
+// and the legend compete for these rows (beads win — see showLegend).
+func (l Layout) availBelowList(sessions int) int {
+	return l.H - boxBorder - sidebarHeader - sessions*linesPerSession - hintRows
+}
+
+// beadsHeader is the rows the beads section spends before any bead shows: a
+// blank separator plus the "bd ready" title row.
+const beadsHeader = 2
+
+// BeadRowsToShow is how many ready-bead rows fit below the session list, 0
+// meaning the section hides entirely (a header with no rows is dead weight).
+// Capped at maxBeadRows however tall the pane is.
+func (l Layout) BeadRowsToShow(sessions, beads int) int {
+	if beads == 0 {
+		return 0
+	}
+	n := l.availBelowList(sessions) - beadsHeader
+	if n > beads {
+		n = beads
+	}
+	if n > maxBeadRows {
+		n = maxBeadRows
+	}
+	if n < 1 {
+		return 0
+	}
+	return n
+}
+
+// showLegend reports whether the color key still fits once the session list
+// and the beads section (beadRows as returned by BeadRowsToShow) have taken
+// their rows. Live work outranks documentation, so the legend yields first.
+func (l Layout) showLegend(sessions, beadRows int) bool {
+	a := l.availBelowList(sessions)
+	if beadRows > 0 {
+		a -= beadRows + beadsHeader
+	}
+	return a >= legendHeight()
 }
 
 // sessionRow0 is the 0-based row of the first session entry (past the top

@@ -158,9 +158,25 @@ func statusGlyph(st reg.Status) string {
 	}
 }
 
+// beadIDStyle colors the issue id in a beads row so it reads apart from the
+// faint title beside it.
+var beadIDStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("6")) // cyan
+
+// renderBeadRow draws one ready issue — colored id, faint title — within w
+// columns. The id wins when space is tight; a title fragment under two cells
+// isn't worth its separator.
+func renderBeadRow(b Bead, w int) string {
+	id := truncate(b.ID, w)
+	rest := w - len([]rune(id)) - 1
+	if rest < 2 {
+		return beadIDStyle.Render(id)
+	}
+	return beadIDStyle.Render(id) + " " + hintStyle.Render(truncate(b.Title, rest))
+}
+
 // RenderSidebar draws the fixed-order session list, full pane height. When
 // confirming is set, the footer turns into a close-confirmation prompt.
-func RenderSidebar(l Layout, sessions []*reg.Session, active int, focused, confirming bool) string {
+func RenderSidebar(l Layout, sessions []*reg.Session, beads []Bead, active int, focused, confirming bool) string {
 	contentH := l.H - boxBorder
 	lines := make([]string, 0, contentH)
 
@@ -206,9 +222,21 @@ func RenderSidebar(l Layout, sessions []*reg.Session, active int, focused, confi
 		lines = append(lines, row3)
 	}
 
-	// Color key for the status glyphs, just below the list — handy when getting
-	// started. Yields to the session list on short terminals (showLegend).
-	if l.showLegend(len(sessions)) {
+	// Ready work from the bd tracker, just below the list — what a freed-up
+	// session could pick up next. Truncated to fit (top maxBeadRows at most);
+	// the header carries the true total.
+	beadRows := l.BeadRowsToShow(len(sessions), len(beads))
+	if beadRows > 0 {
+		header := fmt.Sprintf("bd ready · %d", len(beads))
+		lines = append(lines, "", hintStyle.Render(truncate(header, l.SidebarW)))
+		for _, b := range beads[:beadRows] {
+			lines = append(lines, renderBeadRow(b, l.SidebarW))
+		}
+	}
+
+	// Color key for the status glyphs, below the work sections — handy when
+	// getting started. Yields to sessions and beads on short terminals.
+	if l.showLegend(len(sessions), beadRows) {
 		lines = append(lines, "")
 		for _, e := range legend {
 			lines = append(lines, statusGlyph(e.st)+" "+hintStyle.Render(e.label))

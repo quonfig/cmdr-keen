@@ -119,6 +119,20 @@ files in may not work** — drag them in instead.
 | `✓` green | all done (your move) | `Stop` |
 | `✕` faint | exited | `SessionEnd` |
 
+The same counts roll up into the outer terminal's tab title — `keen · 2◐ 3● 4✓`
+(needs-you / working / done) — so even a backgrounded keen tab shows at a
+glance when sessions are waiting on you. Visual only, like the sidebar: no
+bell, no notifications.
+
+## Ready work (beads)
+
+If the directory you launch keen from is tracked with the
+[bd (beads)](https://github.com/steveyegge/beads) issue tracker, the sidebar
+lists the top 10 ready issues (`bd ready`) below the sessions — what a
+freed-up session could pick up next. It refreshes once a minute and is purely
+informational; the section hides when bd isn't installed, the database isn't
+initialized, or there's no ready work.
+
 ## Setup: make Cmd-K work too (macOS / Cursor / VS Code)
 
 keen's prefix is **Ctrl-K**. To also trigger it with **Cmd-K**, the terminal
