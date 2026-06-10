@@ -59,7 +59,7 @@ type Model struct {
 	// the close ('x'/'y') or cancels it.
 	confirmClose bool
 
-	// beads is the latest `bd ready` poll result (see beads.go); lastTitle is
+	// beads is the latest `bd list` poll result (see beads.go); lastTitle is
 	// the fleet summary most recently pushed to the terminal title, kept to
 	// skip redundant tmux calls.
 	beads     []Bead

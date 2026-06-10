@@ -124,14 +124,15 @@ The same counts roll up into the outer terminal's tab title — `keen · 2◐ 3�
 glance when sessions are waiting on you. Visual only, like the sidebar: no
 bell, no notifications.
 
-## Ready work (beads)
+## Live work (beads)
 
 If the directory you launch keen from is tracked with the
 [bd (beads)](https://github.com/steveyegge/beads) issue tracker, the sidebar
-lists the top 10 ready issues (`bd ready`) below the sessions — what a
-freed-up session could pick up next. It refreshes once a minute and is purely
+lists the top 10 live issues (`bd list` — open and in-progress) below the
+sessions, two lines each in bd's own row style: status circle, id, priority
+badge, then the title. It refreshes once a minute and is purely
 informational; the section hides when bd isn't installed, the database isn't
-initialized, or there's no ready work.
+initialized, or there are no live issues.
 
 ## Setup: make Cmd-K work too (macOS / Cursor / VS Code)
 

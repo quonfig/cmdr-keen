@@ -164,8 +164,8 @@ func statusGlyph(st reg.Status) string {
 var beadIDStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("6")) // cyan
 
 // beadGlyph mirrors bd's own status circles (○ open, ◐ in_progress, ● blocked,
-// ✓ closed, ❄ deferred). bd ready only emits open issues today; the rest are
-// mapped defensively so a future bd can't render garbage.
+// ✓ closed, ❄ deferred). bd list emits open and in_progress by default; the
+// rest are mapped defensively so a future bd can't render garbage.
 func beadGlyph(status string) string {
 	switch status {
 	case "in_progress":
@@ -283,12 +283,12 @@ func RenderSidebar(l Layout, sessions []*reg.Session, beads []Bead, active int, 
 		}
 	}
 
-	// Ready work from the bd tracker, just below the list — what a freed-up
-	// session could pick up next. Truncated to fit (top maxBeads at most);
-	// the header carries the true total.
+	// Live work from the bd tracker, just below the list — open and claimed
+	// issues alike, glyphed like bd's own output. Truncated to fit (top
+	// maxBeads at most); the header carries the true total.
 	beadsShown := l.BeadsToShow(len(sessions), len(beads))
 	if beadsShown > 0 {
-		header := fmt.Sprintf("bd ready · %d", len(beads))
+		header := fmt.Sprintf("bd list · %d", len(beads))
 		lines = append(lines, "", hintStyle.Render(truncate(header, l.SidebarW)))
 		for _, b := range beads[:beadsShown] {
 			line1, line2 := renderBeadRow(b, l.SidebarW)
