@@ -30,31 +30,40 @@ type Bead struct {
 	Title string `json:"title"`
 }
 
-// beadsMsg delivers a poll result to the update loop. nil means "nothing to
-// show" regardless of why (no bd, no db, no ready work).
-type beadsMsg struct{ beads []Bead }
+// beadsMsg delivers a poll result to the update loop. An empty beads list
+// means "nothing to show" (no db, no ready work, bd errored) and polling
+// continues; noBD means bd isn't on PATH at all, which ends the poll chain —
+// a 60s retry loop can't install it. (Installing bd mid-flight needs a
+// sidebar restart to pick up.)
+type beadsMsg struct {
+	beads []Bead
+	noBD  bool
+}
 
 // fetchBeadsNow polls immediately (startup); fetchBeadsLater after the
 // interval (steady state). Both run off the UI thread as tea.Cmds.
 func fetchBeadsNow(cwd string) tea.Cmd {
-	return func() tea.Msg { return beadsMsg{fetchBeads(cwd)} }
+	return func() tea.Msg { return fetchBeads(cwd) }
 }
 
 func fetchBeadsLater(cwd string) tea.Cmd {
-	return tea.Tick(beadsPollInterval, func(time.Time) tea.Msg { return beadsMsg{fetchBeads(cwd)} })
+	return tea.Tick(beadsPollInterval, func(time.Time) tea.Msg { return fetchBeads(cwd) })
 }
 
 // fetchBeads runs `bd ready --json` in cwd. Output() captures stdout only, so
 // bd's stderr warnings (auto-export notes, permission nags) never reach the
 // parser.
-func fetchBeads(cwd string) []Bead {
+func fetchBeads(cwd string) tea.Msg {
+	if _, err := exec.LookPath("bd"); err != nil {
+		return beadsMsg{noBD: true}
+	}
 	cmd := exec.Command("bd", "ready", "--json")
 	cmd.Dir = cwd
 	out, err := cmd.Output()
 	if err != nil {
-		return nil
+		return beadsMsg{}
 	}
-	return parseBeads(out)
+	return beadsMsg{beads: parseBeads(out)}
 }
 
 // parseBeads decodes the bd ready list, mapping every failure to nil — a

@@ -29,6 +29,19 @@ func TestParseBeadsBadInput(t *testing.T) {
 	}
 }
 
+func TestBeadsPollStopsWithoutBD(t *testing.T) {
+	// No bd on PATH means no amount of 60s retries will help — the poll chain
+	// must end (no follow-up cmd), not spin forever execing a missing binary.
+	m := testModel()
+	if _, cmd := m.Update(beadsMsg{noBD: true}); cmd != nil {
+		t.Error("beadsMsg{noBD} rescheduled a poll; want the chain to stop")
+	}
+	// With bd present, the chain continues even when there's no ready work.
+	if _, cmd := m.Update(beadsMsg{}); cmd == nil {
+		t.Error("empty beadsMsg ended the poll chain; want a reschedule")
+	}
+}
+
 func TestBeadRowsToShow(t *testing.T) {
 	tall := ComputeLayout(32, 60) // avail(1 session) = 60-2-2-3-3 = 50
 	short := ComputeLayout(32, 18)

@@ -109,6 +109,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case beadsMsg:
 		m.beads = msg.beads
+		if msg.noBD { // no bd on PATH — stay hidden and stop polling for good
+			return m, nil
+		}
 		return m, fetchBeadsLater(m.initialCwd)
 
 	case hooks.StatusEventMsg:
