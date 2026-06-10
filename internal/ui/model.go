@@ -4,10 +4,9 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/quonfig/cmdr-keen/internal/debug"
 	"github.com/quonfig/cmdr-keen/internal/hooks"
-	"github.com/quonfig/cmdr-keen/internal/session"
+	"github.com/quonfig/cmdr-keen/internal/reg"
 	"github.com/quonfig/cmdr-keen/internal/titler"
 )
 
@@ -25,12 +24,12 @@ type summaryMsg struct {
 // prompt (the in-flight guard in maybeSummarize still coalesces bursts).
 const resummarizeEvery = 1
 
-// tickInterval is how often the model wakes to repaint so the sidebar's elapsed
-// timers advance even while every session is quiet. The timer is minute-coarse,
-// so a 1s cadence is plenty without being a busy-loop.
+// tickInterval is how often the model wakes to repaint elapsed timers and
+// prune sessions whose pane has died. The timer is minute-coarse and the prune
+// is one tmux list-panes, so a 1s cadence is cheap.
 const tickInterval = time.Second
 
-// tickMsg is the periodic repaint nudge that keeps the elapsed timers live.
+// tickMsg is the periodic nudge that keeps timers live and the list pruned.
 type tickMsg struct{}
 
 func tick() tea.Cmd {
@@ -40,31 +39,33 @@ func tick() tea.Cmd {
 // transcriptTailChars is how much of the recent transcript we feed the titler.
 const transcriptTailChars = 4000
 
-// Model is the top-level Bubble Tea model: a fixed-order list of sessions and
-// an embedded pane for the active one. Focus is either the pane (keystrokes go
-// to Claude — the default) or the sidebar (keystrokes navigate). Ctrl-K toggles.
+// Model is the sidebar's Bubble Tea model. It runs inside the left tmux pane
+// and never touches a session's bytes: tmux routes keystrokes, renders panes,
+// and owns selection/copy. keen only lists, labels, and switches sessions.
+//
+// Focus is tmux pane focus. When the sidebar pane is focused, keys navigate;
+// Enter (or a row click) hands focus to the session pane; the C-k binding in
+// keen's tmux config toggles back.
 type Model struct {
-	mgr          *session.Manager
-	layout       Layout
-	sidebarFocus bool
-	ready        bool
+	mgr    *reg.Manager
+	layout Layout
+	ready  bool
 
-	// confirmClose is armed when 'x' is pressed in the sidebar; the next key
-	// either confirms the close ('x'/'y') or cancels it. Guards a running
-	// session against an accidental single keystroke.
+	// focused mirrors tmux pane focus (focus-events on + WithReportFocus), so
+	// the border shows where keystrokes go.
+	focused bool
+
+	// confirmClose is armed when 'x' is pressed; the next key either confirms
+	// the close ('x'/'y') or cancels it.
 	confirmClose bool
 
 	initialCwd  string
 	initialArgs []string
 }
 
-func NewModel(initialCwd string, initialArgs []string) *Model {
-	return &Model{initialCwd: initialCwd, initialArgs: initialArgs}
+func NewModel(mgr *reg.Manager, initialCwd string, initialArgs []string) *Model {
+	return &Model{mgr: mgr, focused: true, initialCwd: initialCwd, initialArgs: initialArgs}
 }
-
-// SetManager wires the session manager (created with the program's send func)
-// after tea.NewProgram but before Run.
-func (m *Model) SetManager(mgr *session.Manager) { m.mgr = mgr }
 
 func (m *Model) Init() tea.Cmd { return tick() }
 
@@ -73,10 +74,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.layout = ComputeLayout(msg.Width, msg.Height)
 		m.ready = true
-		m.mgr.Resize(m.layout.PaneW, m.layout.PaneH)
-		if m.mgr.Count() == 0 { // spawn the first session at the real pane size
-			_ = m.mgr.Spawn(m.initialCwd, m.initialArgs)
+		if m.mgr.Count() == 0 { // fresh server — spawn the first session
+			if err := m.mgr.Spawn(m.initialCwd, m.initialArgs); err != nil {
+				debug.Logf("initial spawn: %v", err)
+			}
 		}
+		return m, nil
+
+	case tea.FocusMsg:
+		m.focused = true
+		return m, nil
+
+	case tea.BlurMsg:
+		m.focused = false
 		return m, nil
 
 	case tea.KeyMsg:
@@ -87,14 +97,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tickMsg:
-		return m, tick() // repaint so elapsed timers advance; reschedule
-
-	case session.OutputMsg:
-		return m, nil // a session painted; Bubble Tea will re-render the view
-
-	case session.ExitMsg:
-		m.mgr.MarkStatus(msg.ID, session.StatusExited)
-		return m, nil
+		m.mgr.Prune() // drop sessions whose pane died; repaint refreshes timers
+		return m, tick()
 
 	case hooks.StatusEventMsg:
 		if st, ok := statusForEvent(msg.Event); ok {
@@ -146,18 +150,18 @@ func (m *Model) maybeSummarize(msg hooks.StatusEventMsg) tea.Cmd {
 // statusForEvent maps a hook event name to a sidebar status. "start" is
 // intentionally unmapped — a freshly launched session stays neutral until the
 // first prompt makes it crunch.
-func statusForEvent(event string) (session.Status, bool) {
+func statusForEvent(event string) (reg.Status, bool) {
 	switch event {
 	case "crunching":
-		return session.StatusCrunching, true
+		return reg.StatusCrunching, true
 	case "waiting":
-		return session.StatusWaiting, true
+		return reg.StatusWaiting, true
 	case "idle":
-		return session.StatusIdle, true
+		return reg.StatusIdle, true
 	case "done":
-		return session.StatusDone, true
+		return reg.StatusDone, true
 	case "exit":
-		return session.StatusExited, true
+		return reg.StatusExited, true
 	}
 	return 0, false
 }
@@ -166,45 +170,33 @@ func (m *Model) handleKey(k tea.KeyMsg) tea.Cmd {
 	if m.confirmClose { // a close is armed — this key confirms or cancels it
 		return m.handleConfirmClose(k)
 	}
-	if k.Type == tea.KeyCtrlK { // the keen prefix — never reaches Claude
-		m.sidebarFocus = !m.sidebarFocus
-		return nil
-	}
-	if m.sidebarFocus {
-		return m.handleSidebarKey(k)
-	}
-	if s := m.mgr.Active(); s != nil {
-		b := KeyToBytes(k)
-		debug.Logf("key -> %s (idx %d): %q", s.ID, m.mgr.ActiveIndex(), b)
-		s.ResetScroll() // typing jumps back to the live bottom
-		s.Write(b)
-	}
-	return nil
-}
-
-func (m *Model) handleSidebarKey(k tea.KeyMsg) tea.Cmd {
 	rune1 := ""
 	if k.Type == tea.KeyRunes && len(k.Runes) == 1 {
 		rune1 = string(k.Runes[0])
 	}
 	switch {
 	case k.Type == tea.KeyEnter:
-		m.sidebarFocus = false // hand control back to the session
+		m.mgr.FocusActive() // hand keyboard focus to the session pane
 	case k.Type == tea.KeyUp, rune1 == "k":
-		m.mgr.SetActive(m.mgr.ActiveIndex()-1, "key:up")
+		m.mgr.Activate(m.mgr.ActiveIndex() - 1)
 	case k.Type == tea.KeyDown, rune1 == "j":
-		m.mgr.SetActive(m.mgr.ActiveIndex()+1, "key:down")
+		m.mgr.Activate(m.mgr.ActiveIndex() + 1)
 	case rune1 == "n":
-		_ = m.mgr.Spawn(m.initialCwd, m.initialArgs)
-		m.sidebarFocus = false
+		if err := m.mgr.Spawn(m.initialCwd, m.initialArgs); err != nil {
+			debug.Logf("spawn: %v", err)
+		} else {
+			m.mgr.FocusActive()
+		}
 	case rune1 == "x":
 		if m.mgr.Count() > 0 { // arm confirmation; the next key decides
 			m.confirmClose = true
 		}
 	case rune1 == "q", k.Type == tea.KeyCtrlC:
-		return tea.Quit
+		// Detach the client; the tmux server — and every Claude — lives on.
+		// The sidebar keeps running inside its pane, ready for the reattach.
+		m.mgr.Detach()
 	case rune1 >= "1" && rune1 <= "9":
-		m.mgr.SetActive(int(k.Runes[0]-'1'), "key:number")
+		m.mgr.Activate(int(k.Runes[0] - '1'))
 	}
 	return nil
 }
@@ -221,36 +213,17 @@ func (m *Model) handleConfirmClose(k tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
+// handleMouse: a click on a session row switches to it and hands focus to the
+// session pane. Coordinates are pane-local — tmux only delivers events inside
+// the sidebar pane, so there is nothing else to hit.
 func (m *Model) handleMouse(ms tea.MouseMsg) {
-	// Click on a sidebar row → switch to it and hand control to the session.
+	if ms.Action != tea.MouseActionPress || ms.Button != tea.MouseButtonLeft {
+		return
+	}
 	if idx := m.layout.SessionIndexAt(ms.X, ms.Y, m.mgr.Count()); idx >= 0 {
-		if ms.Action == tea.MouseActionPress {
-			debug.Logf("mouse press at (%d,%d) hit sidebar row idx %d (button %v, action %v)", ms.X, ms.Y, idx, ms.Button, ms.Action)
-			m.mgr.SetActive(idx, "mouse")
-			m.sidebarFocus = false
-		}
-		return
-	}
-	// Otherwise the event belongs to the active session's pane.
-	if !m.layout.InPane(ms.X, ms.Y) {
-		return
-	}
-	s := m.mgr.Active()
-	if s == nil {
-		return
-	}
-	// A wheel notch scrolls keen's own scrollback unless Claude is tracking the
-	// mouse, in which case the wheel is Claude's to handle. Clicks/drags/motion
-	// always go into the vt (it drops them when Claude isn't tracking).
-	switch {
-	case ms.Button == tea.MouseButtonWheelUp && !s.MouseEnabled():
-		s.ScrollBy(1)
-	case ms.Button == tea.MouseButtonWheelDown && !s.MouseEnabled():
-		s.ScrollBy(-1)
-	default:
-		if ev, ok := MouseToVT(ms, m.layout); ok {
-			s.SendMouse(ev)
-		}
+		debug.Logf("mouse press at (%d,%d) hit row %d", ms.X, ms.Y, idx)
+		m.mgr.Activate(idx)
+		m.mgr.FocusActive()
 	}
 }
 
@@ -258,7 +231,5 @@ func (m *Model) View() string {
 	if !m.ready {
 		return "starting keen…"
 	}
-	sidebar := RenderSidebar(m.layout, m.mgr.Sessions(), m.mgr.ActiveIndex(), m.sidebarFocus, m.confirmClose)
-	pane := RenderPane(m.layout, m.mgr.Active(), !m.sidebarFocus)
-	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, pane)
+	return RenderSidebar(m.layout, m.mgr.Sessions(), m.mgr.ActiveIndex(), m.focused, m.confirmClose)
 }

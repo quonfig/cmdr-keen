@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/quonfig/cmdr-keen/internal/session"
+	"github.com/quonfig/cmdr-keen/internal/reg"
 )
 
 var (
@@ -118,13 +118,13 @@ func contextBar(tokens int) string {
 // Ordered by how much each state wants your attention, so "needs you" reads
 // first.
 var legend = []struct {
-	st    session.Status
+	st    reg.Status
 	label string
 }{
-	{session.StatusWaiting, "needs you · permission"},
-	{session.StatusIdle, "needs you · idle"},
-	{session.StatusCrunching, "working"},
-	{session.StatusDone, "done"},
+	{reg.StatusWaiting, "needs you · permission"},
+	{reg.StatusIdle, "needs you · idle"},
+	{reg.StatusCrunching, "working"},
+	{reg.StatusDone, "done"},
 }
 
 // legendHeight is how many sidebar rows the legend occupies: one per entry plus
@@ -133,26 +133,26 @@ var legend = []struct {
 func legendHeight() int { return len(legend) + 1 }
 
 // statusGlyph returns a single colored cell for a session's status.
-func statusGlyph(st session.Status) string {
+func statusGlyph(st reg.Status) string {
 	switch st {
-	case session.StatusCrunching:
+	case reg.StatusCrunching:
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render("●") // yellow
-	case session.StatusWaiting:
+	case reg.StatusWaiting:
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Render("◐") // red — permission
-	case session.StatusIdle:
+	case reg.StatusIdle:
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Render("◐") // magenta — idle ping
-	case session.StatusDone:
+	case reg.StatusDone:
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("2")).Render("✓") // green
-	case session.StatusExited:
+	case reg.StatusExited:
 		return hintStyle.Render("✕")
 	default:
 		return hintStyle.Render("·")
 	}
 }
 
-// RenderSidebar draws the fixed-order session list, full terminal height. When
+// RenderSidebar draws the fixed-order session list, full pane height. When
 // confirming is set, the footer turns into a close-confirmation prompt.
-func RenderSidebar(l Layout, sessions []*session.Session, active int, focused, confirming bool) string {
+func RenderSidebar(l Layout, sessions []*reg.Session, active int, focused, confirming bool) string {
 	contentH := l.H - boxBorder
 	lines := make([]string, 0, contentH)
 
@@ -203,42 +203,27 @@ func RenderSidebar(l Layout, sessions []*session.Session, active int, focused, c
 		}
 	}
 
-	// Pin the hint to the bottom of the box. The second line tells users how to
-	// copy: keen holds the terminal in mouse-tracking mode, so native
-	// click-drag selection only works while a modifier is held.
-	hint := hintStyle.Render("⌃k list · n new · x close")
-	copyHint := hintStyle.Render("⌥-drag to select/copy")
+	// Pin the hint to the bottom of the box. Copy needs no hint anymore — tmux
+	// owns the mouse, so plain click-drag selects within a pane and copies on
+	// release. The second line sells the new superpower instead.
+	hint := hintStyle.Render("⏎ to claude · n new · x close")
+	hint2 := hintStyle.Render("q detach (sessions live on)")
 	if confirming { // an 'x' is armed — replace the footer with a clear prompt
 		hint = confirmStyle.Render("close session?")
-		copyHint = confirmStyle.Render("x confirm · any cancel")
+		hint2 = confirmStyle.Render("x confirm · any cancel")
 	}
 	used := len(lines) + 2
 	for used < contentH {
 		lines = append(lines, "")
 		used++
 	}
-	lines = append(lines, hint, copyHint)
+	lines = append(lines, hint, hint2)
 
 	box := unfocusBorder
 	if focused {
 		box = focusBorder
 	}
 	return box.Width(l.SidebarW).Height(contentH).Render(strings.Join(lines, "\n"))
-}
-
-// RenderPane draws the active session's emulated screen, or a placeholder.
-func RenderPane(l Layout, s *session.Session, focused bool) string {
-	box := unfocusBorder
-	if focused {
-		box = focusBorder
-	}
-	body := ""
-	if s == nil {
-		body = hintStyle.Render("no sessions — press ⌃k then n")
-	} else {
-		body = s.Render()
-	}
-	return box.Width(l.PaneW).Height(l.PaneH).Render(body)
 }
 
 // firstNonEmpty returns the first non-empty string, or "" if all are empty.

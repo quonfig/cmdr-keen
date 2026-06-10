@@ -24,7 +24,7 @@ statuses.
 | Decision | Choice | Consequence |
 |---|---|---|
 | **Layout** | Always-on sidebar + live embedded session pane (preferred), **overlay-switcher as equal fallback** | Decided by the M0 spike — whichever preserves **full Claude fidelity** wins (see §2.1, §9). |
-| **Persistence** | Wrapper owns the PTYs (no tmux) | Simple, zero deps. Closing/crashing the wrapper kills all sessions. Revisit later for detach/survive. |
+| **Persistence** | ~~Wrapper owns the PTYs (no tmux)~~ **Superseded by M5:** sessions live in a private tmux server | Sessions survive keen quitting/crashing; `keen` reattaches. Costs a tmux dependency (the user never drives tmux directly). |
 | **Naming** | Hooks for status, cheap LLM (Haiku) for the title | Deterministic status; nice human titles. Falls back to heuristic title with no API key. |
 | **Prefix key** | **`Ctrl-k`** | Wrapper steals `Ctrl-k` before forwarding; everything else flows to Claude. |
 | **Alerts** | **No bell / no OS notification** — colored indicator on the tab only | Status conveyed purely visually in the sidebar. |
@@ -218,6 +218,24 @@ Update(msg):
   branch shown until the title lands). Manual rename still TODO.
 - **M4 — Polish.** Manual rename, spinners, elapsed timers, new-session dir picker,
   close/confirm, permission-vs-idle status split, config file.
+- **M5 — tmux rototill (the `tmux-spike` branch).** The embedded VT emulator and
+  the entire input-routing layer (`internal/session`, `KeyToBytes`, `MouseToVT`,
+  sidebar hit-testing against a shared screen) are replaced by a **private tmux
+  server**: `keen` boots `tmux -L keen` with a generated config and execs into
+  the attach; the sidebar is a Bubble Tea program in the left pane; each Claude
+  runs raw in its own pane, parked in a background window and brought into view
+  by `swap-pane`/`join-pane`. Session metadata (id, spawn order, labels, status)
+  persists as `@keen-*` pane user options, so a restarted sidebar — or a fresh
+  `keen` after the client died — rebuilds the registry by scanning panes.
+  Motivations and what we bought: (1) **bounded native copy** — tmux mouse mode
+  selects within a pane and copies via `set-clipboard`/OSC 52, no Option key, no
+  sidebar bleed, works in Cursor; (2) **persistence** — quitting or crashing keen
+  no longer kills the herd (`q` detaches); (3) the phantom-input bug class
+  (mis-routed keystrokes, see `.beads/keen-phantom-input.md`) is structurally
+  impossible — keys go to the focused pane, and background panes can't receive
+  input; (4) ~900 lines of emulator/key-reconstruction code deleted along with
+  the experimental `x/vt` dependency risk. Hooks, statuses, and Haiku titling
+  carry over unchanged.
 
 ## 9. Risks & the M0 spike
 

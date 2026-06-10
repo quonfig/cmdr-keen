@@ -2,9 +2,20 @@
 
 A thin multiplexer for Claude Code. Run many `claude` sessions behind one
 screen: a fixed-order sidebar showing each session's name and a live status
-color (crunching / waiting on you / all done), plus an embedded pane for the
-active session. Keystrokes pass straight through to Claude — keen only adds the
-list, the names, and the statuses.
+color (crunching / waiting on you / all done), with the active session running
+raw in a pane beside it. Keystrokes pass straight through to Claude — keen only
+adds the list, the names, and the statuses.
+
+Under the hood each session lives in a **private tmux server** (own socket, own
+config — it never touches your tmux, and you never drive tmux directly). That
+buys three things the old built-in terminal emulator couldn't:
+
+- **Persistence** — quit keen, crash it, or lose the whole terminal: sessions
+  keep running. `keen` reattaches to exactly where you left off.
+- **Native copy** — plain click-drag selects text within a pane (no Option key,
+  never bleeding into the sidebar) and copies to the system clipboard on release.
+- **Fidelity** — bytes flow terminal ↔ tmux ↔ claude with no keen-authored
+  emulation or key reconstruction in the path.
 
 ![keen running several Claude Code sessions behind one screen](docs/images/cmdr-keen.png)
 
@@ -53,14 +64,20 @@ so there's no second helper to build or keep on your `PATH`. (A standalone
 `cc-deck-hook` build still exists under `cmd/cc-deck-hook` for anyone wiring
 hooks by hand, but it's optional.)
 
+keen needs `tmux` on your `PATH` (`brew install tmux`).
+
 ## Run
 
 ```sh
-keen                # one session: `claude --permission-mode auto` in $PWD
+keen                # boot (or reattach): `claude --permission-mode auto` per session
 keen -- bash        # wrap an arbitrary command instead (handy for testing)
+keen kill           # tear down the server and every session in it
 ```
 
 (If you built from source instead of installing, run `./bin/keen`.)
+
+Running `keen` when a server is already up simply **reattaches** — your
+sessions, names, and statuses come back exactly as you left them.
 
 Each session is spawned with hooks injected via `claude --settings <tempfile>`,
 so your global `~/.claude` is never modified.
@@ -75,7 +92,7 @@ so your global `~/.claude` is never modified.
 | New session | `n` |
 | Close session | `x` |
 | Jump to session N | `1`–`9` |
-| Quit keen | `q` |
+| Detach — sessions keep running | `q` |
 | Switch to a session | click its row |
 
 When the session is focused, everything (typing, paste, mouse scroll/click) goes
@@ -83,10 +100,10 @@ straight to Claude. Only the prefix key is intercepted.
 
 ### Copying and pasting
 
-Because keen captures the mouse for the session, a normal click-drag won't
-select text — it gets sent to Claude. To select and copy text, **hold Option
-while you drag** (on most macOS terminals this bypasses mouse capture and does a
-native text selection); then copy as usual.
+Click and drag to select text — the selection is bounded to the pane you're in,
+and it lands on the system clipboard when you release (tmux `set-clipboard` via
+OSC 52). No modifier keys needed, and it works the same inside Cursor/VS Code
+terminals. The mouse wheel scrolls a pane's history.
 
 You can **drag files into** the session to insert their paths, but **pasting
 files in may not work** — drag them in instead.
@@ -132,12 +149,14 @@ focus.
 ## Layout
 
 ```
-cmd/keen/            entry point (also serves hooks via `keen __hook`)
+cmd/keen/            entry point: boots/attaches the tmux server; also serves
+                     `keen __sidebar` (the sidebar pane) and `keen __hook`
+internal/tmuxctl/    the one place that talks to keen's private tmux server
+internal/reg/        session registry: metadata persisted as tmux pane options
+internal/ui/         Bubble Tea sidebar: model, render, hit-testing
 internal/hook/       Claude Code hook helper: reports status to keen's socket
 cmd/cc-deck-hook/    optional standalone build of internal/hook
-internal/session/    one claude process: PTY + terminal emulator + lifecycle
-internal/ui/         Bubble Tea model, sidebar/pane render, key + mouse input
 internal/hooks/      unix-socket status server + per-session settings generation
-internal/titler/     turns a session's first prompt into a short Haiku tab title
+internal/titler/     turns a session's transcript into Haiku topic/task labels
 spike/               M0 de-risk spikes (passthrough vs embedded-vt)
 ```
