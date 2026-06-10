@@ -7,7 +7,7 @@ package main
 import (
 	"os"
 
-	"github.com/jeffreyd-miro/cmdr-keen/internal/hook"
+	"github.com/quonfig/cmdr-keen/internal/hook"
 )
 
 func main() {

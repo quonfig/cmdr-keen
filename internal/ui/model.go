@@ -5,10 +5,10 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/jeffreyd-miro/cmdr-keen/internal/debug"
-	"github.com/jeffreyd-miro/cmdr-keen/internal/hooks"
-	"github.com/jeffreyd-miro/cmdr-keen/internal/session"
-	"github.com/jeffreyd-miro/cmdr-keen/internal/titler"
+	"github.com/quonfig/cmdr-keen/internal/debug"
+	"github.com/quonfig/cmdr-keen/internal/hooks"
+	"github.com/quonfig/cmdr-keen/internal/session"
+	"github.com/quonfig/cmdr-keen/internal/titler"
 )
 
 // summaryMsg carries a freshly generated set of session labels back to the

@@ -1,4 +1,4 @@
-module github.com/jeffreyd-miro/cmdr-keen
+module github.com/quonfig/cmdr-keen
 
 go 1.26.4
 

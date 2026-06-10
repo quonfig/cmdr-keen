@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/jeffreyd-miro/cmdr-keen/internal/session"
+	"github.com/quonfig/cmdr-keen/internal/session"
 )
 
 var (

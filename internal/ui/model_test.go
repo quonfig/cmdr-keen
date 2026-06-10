@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/jeffreyd-miro/cmdr-keen/internal/session"
+	"github.com/quonfig/cmdr-keen/internal/session"
 )
 
 // runeKey builds a single-rune key message for driving the key handlers.

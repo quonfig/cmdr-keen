@@ -12,10 +12,10 @@ import (
 	"runtime/debug"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/jeffreyd-miro/cmdr-keen/internal/hook"
-	"github.com/jeffreyd-miro/cmdr-keen/internal/hooks"
-	"github.com/jeffreyd-miro/cmdr-keen/internal/session"
-	"github.com/jeffreyd-miro/cmdr-keen/internal/ui"
+	"github.com/quonfig/cmdr-keen/internal/hook"
+	"github.com/quonfig/cmdr-keen/internal/hooks"
+	"github.com/quonfig/cmdr-keen/internal/session"
+	"github.com/quonfig/cmdr-keen/internal/ui"
 )
 
 // version is the keen build version. It defaults to "dev" and can be set at

@@ -15,7 +15,7 @@ See [`docs/spec.md`](docs/spec.md) for the full design and milestones.
 With a Go toolchain (1.26+), install the `keen` binary straight from the repo:
 
 ```sh
-go install github.com/jeffreyd-miro/cmdr-keen/cmd/keen@latest
+go install github.com/quonfig/cmdr-keen/cmd/keen@latest
 ```
 
 This drops `keen` into your `$GOBIN` (defaults to `~/go/bin`). Make sure that
@@ -28,8 +28,8 @@ export PATH="$PATH:$(go env GOPATH)/bin"
 To **upgrade** later, re-run the same command, or pin a specific release:
 
 ```sh
-go install github.com/jeffreyd-miro/cmdr-keen/cmd/keen@latest   # newest tag
-go install github.com/jeffreyd-miro/cmdr-keen/cmd/keen@v0.1.0   # a fixed version
+go install github.com/quonfig/cmdr-keen/cmd/keen@latest   # newest tag
+go install github.com/quonfig/cmdr-keen/cmd/keen@v0.1.0   # a fixed version
 ```
 
 `go install` is per-user — every user runs it for themselves. To install once
@@ -37,7 +37,7 @@ for **all** users on a machine, install it as yourself and copy the binary into
 a shared directory on the system `PATH`:
 
 ```sh
-go install github.com/jeffreyd-miro/cmdr-keen/cmd/keen@latest
+go install github.com/quonfig/cmdr-keen/cmd/keen@latest
 sudo cp "$(go env GOPATH)/bin/keen" /usr/local/bin/keen
 ```
 

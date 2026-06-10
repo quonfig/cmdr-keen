@@ -22,8 +22,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/vt"
 	"github.com/creack/pty"
-	"github.com/jeffreyd-miro/cmdr-keen/internal/debug"
-	"github.com/jeffreyd-miro/cmdr-keen/internal/hooks"
+	"github.com/quonfig/cmdr-keen/internal/debug"
+	"github.com/quonfig/cmdr-keen/internal/hooks"
 )
 
 // wheelStep is how many lines one mouse-wheel notch moves the scrollback view.
