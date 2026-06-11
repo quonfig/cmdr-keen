@@ -4,7 +4,7 @@ All notable changes to keen. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions follow semver
 (pre-1.0: minor bumps may break things).
 
-## [Unreleased]
+## [0.3.0] — 2026-06-11
 
 ### Changed
 - **One keen per directory.** The private tmux server's socket is now derived

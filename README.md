@@ -41,7 +41,7 @@ To **upgrade** later, re-run the same command, or pin a specific release:
 
 ```sh
 go install github.com/quonfig/cmdr-keen/cmd/keen@latest   # newest tag
-go install github.com/quonfig/cmdr-keen/cmd/keen@v0.2.0   # a fixed version
+go install github.com/quonfig/cmdr-keen/cmd/keen@v0.3.0   # a fixed version
 ```
 
 `go install` is per-user — every user runs it for themselves. To install once
