@@ -22,6 +22,36 @@ buys three things the old built-in terminal emulator couldn't:
 See [`docs/spec.md`](docs/spec.md) for the full design and milestones, and
 [`CHANGELOG.md`](CHANGELOG.md) for what each release shipped.
 
+## Where keen fits
+
+This space is moving fast and there are several good tools for running coding
+agents side by side. Most of them do quite a bit more than keen does:
+
+- **[Conductor](https://www.conductor.build/docs)** — a Mac app that runs
+  multiple agents (Claude Code, Codex, Cursor) in parallel, each in its own
+  isolated workspace, and helps with merging and pull requests afterwards.
+- **[herdr](https://github.com/ogulcancelik/herdr)** — a terminal agent
+  multiplexer that detects many agent CLIs by reading their screens (no hooks
+  needed), with workspaces, tiling, and SSH support.
+- **[Imbue](https://imbue.com/)** — building Sculptor ("the missing UI for
+  parallel agents") and mngr, for orchestrating agents across environments.
+
+If you want worktrees, multi-agent orchestration, sandboxes, or merge
+workflows, one of those is probably a better fit. keen deliberately does
+**none** of that. It exists to fix one small, dumb problem:
+
+![six terminal tabs all showing the same version number — no way to tell which claude is which](docs/images/term-confusion.jpg)
+
+Which claude is which? Open a handful of `claude` tabs and they all look
+identical — you can't tell which one is working, which one finished, and which
+one has been silently waiting on a permission prompt for twenty minutes.
+
+keen gives each session a name and a live status color, and keeps sessions
+alive if the terminal dies. That's it. No worktrees, no agents driving agents,
+no opinions about your branching or review workflow — your sessions run in the
+directory you started them in, exactly as if you'd launched `claude` yourself.
+We're trying to keep it as thin as possible.
+
 ## Install
 
 With a Go toolchain (1.26+), install the `keen` binary straight from the repo:
