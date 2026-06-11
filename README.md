@@ -72,13 +72,17 @@ keen needs `tmux` on your `PATH` (`brew install tmux`).
 ```sh
 keen                # boot (or reattach): `claude --permission-mode auto` per session
 keen -- bash        # wrap an arbitrary command instead (handy for testing)
-keen kill           # tear down the server and every session in it
+keen kill           # tear down this directory's server and every session in it
 ```
 
 (If you built from source instead of installing, run `./bin/keen`.)
 
-Running `keen` when a server is already up simply **reattaches** — your
-sessions, names, and statuses come back exactly as you left them.
+Instances are **per-directory**: each directory you start `keen` in gets its
+own private tmux server, so `keen` in project A and `keen` in project B are
+fully independent. Running `keen` where an instance is already up simply
+**reattaches** — your sessions, names, and statuses come back exactly as you
+left them. (`keen kill` only tears down the instance for the directory you run
+it in.)
 
 Each session is spawned with hooks injected via `claude --settings <tempfile>`,
 so your global `~/.claude` is never modified.

@@ -15,18 +15,24 @@
 //   - Fidelity: bytes flow terminal ↔ tmux ↔ claude with no keen-authored
 //     emulation or key reconstruction in the path.
 //
-//     keen              # boot (or reattach to) the keen server, one claude per session
-//     keen -- bash      # wrap an arbitrary command instead (handy for testing)
-//     keen kill         # tear down the server and every session in it
+// Instances are per-directory: the server socket is derived from the cwd keen
+// was started in, so `keen` in project A and `keen` in project B are fully
+// independent — each silently boots or reattaches its own instance.
+//
+//	keen              # boot (or reattach to) this directory's keen, one claude per session
+//	keen -- bash      # wrap an arbitrary command instead (handy for testing)
+//	keen kill         # tear down this directory's server and every session in it
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime/debug"
+	"strings"
 	"syscall"
 
 	"github.com/quonfig/cmdr-keen/internal/hook"
@@ -190,9 +196,48 @@ func sidebarEnv(srv *tmuxctl.Server, conf, cwd string) map[string]string {
 func server(conf string) *tmuxctl.Server {
 	sock := os.Getenv("KEEN_TMUX_SOCKET")
 	if sock == "" {
-		sock = "keen"
+		sock = socketForCwd()
 	}
 	return &tmuxctl.Server{Socket: sock, Config: conf}
+}
+
+// socketForCwd names the tmux server for the directory keen was started in.
+// One server per directory is what makes `keen` in project A and `keen` in
+// project B independent instances, each reattaching to its own sessions.
+func socketForCwd() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "keen"
+	}
+	if resolved, err := filepath.EvalSymlinks(cwd); err == nil {
+		cwd = resolved
+	}
+	if abs, err := filepath.Abs(cwd); err == nil {
+		cwd = abs
+	}
+	return defaultSocket(cwd)
+}
+
+// defaultSocket is the per-directory socket name: "keen-<base>-<hash>", where
+// base is the sanitized directory basename (readable in `tmux -L` and /tmp
+// paths) and hash is a short digest of the full path (so equal basenames under
+// different parents don't collide). Kept short: the hook socket lives at
+// /tmp/keen-<socket>.sock and unix socket paths cap out near 104 chars on
+// macOS.
+func defaultSocket(dir string) string {
+	base := strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_':
+			return r
+		default:
+			return '-'
+		}
+	}, filepath.Base(dir))
+	if len(base) > 20 {
+		base = base[:20]
+	}
+	sum := sha256.Sum256([]byte(dir))
+	return fmt.Sprintf("keen-%s-%x", base, sum[:4])
 }
 
 // tmuxConfig is keen's entire tmux configuration. Regenerated at every boot so

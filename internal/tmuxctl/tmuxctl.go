@@ -1,8 +1,9 @@
 // Package tmuxctl drives keen's private tmux server. tmux is an implementation
-// detail of keen: the server runs on its own socket (-L keen) with its own
-// generated config, so it never touches — and is never touched by — any tmux
-// the user runs themselves. Every tmux invocation funnels through Server so
-// that isolation lives in exactly one place.
+// detail of keen: each server runs on its own socket (-L keen-<dir>-<hash>,
+// derived from the startup directory) with its own generated config, so it
+// never touches — and is never touched by — any tmux the user runs themselves.
+// Every tmux invocation funnels through Server so that isolation lives in
+// exactly one place.
 package tmuxctl
 
 import (

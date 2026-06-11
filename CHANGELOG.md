@@ -4,6 +4,20 @@ All notable changes to keen. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions follow semver
 (pre-1.0: minor bumps may break things).
 
+## [Unreleased]
+
+### Changed
+- **One keen per directory.** The private tmux server's socket is now derived
+  from the directory keen is started in (`keen-<basename>-<hash>`), so `keen`
+  in project A and `keen` in project B are fully independent instances — each
+  silently boots or reattaches its own, no questions asked. Previously a
+  single global server meant running keen in a second project reattached the
+  first project's sessions. `keen kill` now tears down only the current
+  directory's instance. `KEEN_TMUX_SOCKET` still overrides the derived name.
+  Upgrade note: an instance started by an older build lives on the old global
+  `keen` socket; clear it once with `tmux -L keen kill-server` when you're
+  done with those sessions.
+
 ## [0.2.0] — 2026-06-10
 
 The engine swap: keen's embedded VT emulator is gone, replaced by a private
