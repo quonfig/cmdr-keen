@@ -4,7 +4,7 @@ All notable changes to keen. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions follow semver
 (pre-1.0: minor bumps may break things).
 
-## [Unreleased]
+## [0.4.0] — 2026-06-12
 
 ### Added
 - **Config file.** keen's hardcoded commands can now be swapped via
