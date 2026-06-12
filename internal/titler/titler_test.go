@@ -109,3 +109,22 @@ func TestTranscriptTail(t *testing.T) {
 		t.Errorf("TranscriptTail on missing file should be empty")
 	}
 }
+
+func TestSummarizeDisabled(t *testing.T) {
+	if _, err := Summarize(nil, "some transcript", ""); err != ErrDisabled {
+		t.Errorf("Summarize(nil cmd) err = %v, want ErrDisabled", err)
+	}
+}
+
+func TestSummarizeCustomCommand(t *testing.T) {
+	// A stand-in titler: ignores the appended prompt ($0 swallows it) and
+	// prints a fixed three-line reply, proving argv order and parsing.
+	cmd := []string{"sh", "-c", `printf 'TOPIC: keen config\nTASK: wiring tests\nPHASE: testing\n'`}
+	sum, err := Summarize(cmd, "transcript text", "")
+	if err != nil {
+		t.Fatalf("Summarize: %v", err)
+	}
+	if sum.Topic != "keen config" || sum.Task != "wiring tests" || sum.Phase != "testing" {
+		t.Errorf("Summarize = %+v", sum)
+	}
+}

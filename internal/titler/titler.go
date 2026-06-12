@@ -1,13 +1,14 @@
 // Package titler turns a session's recent activity into the compact labels
 // shown in keen's sidebar: an overall topic, the current task, and a phase
-// (planning → done). It shells out to the claude CLI in print mode with the
-// Haiku model, which reuses the user's existing Claude auth — no API key to
-// configure. Callers should treat it as best-effort and fall back to a
-// heuristic on error.
+// (planning → done). It shells out to a caller-supplied command — by default
+// the claude CLI in print mode with the Haiku model, which reuses the user's
+// existing Claude auth, no API key to configure. Callers should treat it as
+// best-effort and fall back to a heuristic on error.
 package titler
 
 import (
 	"context"
+	"errors"
 	"os/exec"
 	"strings"
 	"time"
@@ -34,11 +35,21 @@ const summaryInstruction = "You are labeling a coding session shown in a compact
 	"PHASE: one word, exactly one of: planning building testing shipping done\n" +
 	"Use \"done\" only if the work looks finished and it is safe to close the session.\n\n"
 
-// Summarize asks Haiku to distil recent session text into a Summary. The text
-// is typically a transcript tail (see TranscriptTail) but may be a raw prompt.
-// prevTopic is the session's current TOPIC (may be empty); passing it lets Haiku
+// ErrDisabled is returned by Summarize when the titler command is empty —
+// the user configured titling off. Callers fall back to a heuristic label.
+var ErrDisabled = errors.New("titler disabled by config")
+
+// Summarize asks the titler model to distil recent session text into a
+// Summary. command is the argv to run (default: the claude CLI with Haiku —
+// see config.Default); the assembled prompt is appended as one final
+// argument and stdout is parsed for the three labels. The text is typically
+// a transcript tail (see TranscriptTail) but may be a raw prompt. prevTopic
+// is the session's current TOPIC (may be empty); passing it lets the model
 // keep the headline stable instead of re-deriving — and drifting — every call.
-func Summarize(text, prevTopic string) (Summary, error) {
+func Summarize(command []string, text, prevTopic string) (Summary, error) {
+	if len(command) == 0 {
+		return Summary{}, ErrDisabled
+	}
 	text = strings.TrimSpace(text)
 	if len(text) > maxInputChars { // keep the tail — recent context matters most
 		text = text[len(text)-maxInputChars:]
@@ -54,7 +65,8 @@ func Summarize(text, prevTopic string) (Summary, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "claude", "-p", prompt, "--model", "haiku")
+	args := append(append([]string{}, command[1:]...), prompt)
+	cmd := exec.CommandContext(ctx, command[0], args...)
 	out, err := cmd.Output()
 	if err != nil {
 		return Summary{}, err

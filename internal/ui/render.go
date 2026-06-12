@@ -224,7 +224,7 @@ func renderBeadRow(b Bead, w int) (string, string) {
 
 // RenderSidebar draws the fixed-order session list, full pane height. When
 // confirming is set, the footer turns into a close-confirmation prompt.
-func RenderSidebar(l Layout, sessions []*reg.Session, beads []Bead, active int, focused, confirming bool) string {
+func RenderSidebar(l Layout, sessions []*reg.Session, beads []Bead, beadsLabel string, active int, focused, confirming bool) string {
 	contentH := l.H - boxBorder
 	lines := make([]string, 0, contentH)
 
@@ -288,7 +288,7 @@ func RenderSidebar(l Layout, sessions []*reg.Session, beads []Bead, active int, 
 	// maxBeads at most); the header carries the true total.
 	beadsShown := l.BeadsToShow(len(sessions), len(beads))
 	if beadsShown > 0 {
-		header := fmt.Sprintf("bd list · %d", len(beads))
+		header := fmt.Sprintf("%s · %d", beadsLabel, len(beads))
 		lines = append(lines, "", hintStyle.Render(truncate(header, l.SidebarW)))
 		for _, b := range beads[:beadsShown] {
 			line1, line2 := renderBeadRow(b, l.SidebarW)

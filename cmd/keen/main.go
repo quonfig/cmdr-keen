@@ -35,6 +35,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/quonfig/cmdr-keen/internal/config"
 	"github.com/quonfig/cmdr-keen/internal/hook"
 	"github.com/quonfig/cmdr-keen/internal/reg"
 	"github.com/quonfig/cmdr-keen/internal/tmuxctl"
@@ -99,6 +100,15 @@ func boot() error {
 	}
 	if os.Getenv("TMUX") != "" {
 		return fmt.Errorf("already inside a tmux session — run keen from a plain terminal")
+	}
+
+	// Validate the config files here, where stderr is still the user's
+	// terminal — the sidebar quietly falls back to defaults if they go bad
+	// later, but a typo at boot should be loud.
+	if cwd, err := os.Getwd(); err == nil {
+		if _, err := config.Load(cwd); err != nil {
+			return fmt.Errorf("config: %w", err)
+		}
 	}
 
 	conf, err := writeConfig()

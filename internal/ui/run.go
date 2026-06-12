@@ -6,6 +6,7 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/quonfig/cmdr-keen/internal/config"
 	"github.com/quonfig/cmdr-keen/internal/hooks"
 	"github.com/quonfig/cmdr-keen/internal/reg"
 	"github.com/quonfig/cmdr-keen/internal/tmuxctl"
@@ -42,7 +43,13 @@ func RunSidebar() error {
 	if cwd == "" {
 		cwd, _ = os.Getwd()
 	}
-	args := sessionArgs()
+	cfg, err := config.Load(cwd)
+	if err != nil {
+		// Boot already validated the files loudly; a sidebar-side failure
+		// (file edited mid-flight) degrades to defaults rather than dying.
+		cfg = config.Default()
+	}
+	args := sessionArgs(cfg)
 
 	hookSocket := reg.HookSocketPath(t.Socket)
 	mgr := reg.NewManager(t, pane, viewWindow, hookSocket, hooks.ResolveHookBin(), SidebarPaneWidth)
@@ -50,7 +57,7 @@ func RunSidebar() error {
 		return fmt.Errorf("scan panes: %w", err)
 	}
 
-	model := NewModel(mgr, cwd, args)
+	model := NewModel(mgr, cwd, args, cfg)
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithReportFocus())
 
 	srv, err := hooks.NewServer(hookSocket, p.Send)
@@ -73,13 +80,14 @@ func socketName() string {
 }
 
 // sessionArgs is the argv each new session runs: KEEN_CMD (a JSON array, set
-// by `keen -- <cmd>` at boot) or the default claude invocation.
-func sessionArgs() []string {
+// by `keen -- <cmd>` at boot) wins, else the configured session_command
+// (default: the claude invocation).
+func sessionArgs(cfg config.Config) []string {
 	if raw := os.Getenv("KEEN_CMD"); raw != "" {
 		var args []string
 		if json.Unmarshal([]byte(raw), &args) == nil && len(args) > 0 {
 			return args
 		}
 	}
-	return []string{"claude", "--permission-mode", "auto"}
+	return cfg.SessionCommand
 }

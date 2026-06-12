@@ -123,3 +123,18 @@ func visibleWidth(s string) int {
 	}
 	return w
 }
+
+func TestFetchBeadsDisabled(t *testing.T) {
+	msg, ok := fetchBeads(".", nil).(beadsMsg)
+	if !ok || !msg.noBD {
+		t.Errorf("fetchBeads with empty argv = %+v, want noBD (section off, polling stops)", msg)
+	}
+}
+
+func TestFetchBeadsCustomCommand(t *testing.T) {
+	argv := []string{"sh", "-c", `printf '[{"id":"x-1","title":"a task","status":"open","priority":2}]'`}
+	msg, ok := fetchBeads(t.TempDir(), argv).(beadsMsg)
+	if !ok || msg.noBD || len(msg.beads) != 1 || msg.beads[0].ID != "x-1" {
+		t.Errorf("fetchBeads custom argv = %+v, want one bead x-1", msg)
+	}
+}

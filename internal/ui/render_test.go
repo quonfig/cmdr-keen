@@ -38,7 +38,7 @@ func stripANSI(s string) string {
 func TestFrameLinesExactWidth(t *testing.T) {
 	l := ComputeLayout(32, 40)
 	for _, focused := range []bool{true, false} {
-		out := RenderSidebar(l, twoSessions(), nil, 0, focused, false)
+		out := RenderSidebar(l, twoSessions(), nil, "bd list", 0, focused, false)
 		for i, line := range strings.Split(out, "\n") {
 			if w := visibleWidth(line); w != l.W {
 				t.Errorf("focused=%v line %d: width %d, want %d (%q)", focused, i, w, l.W, line)
@@ -51,7 +51,7 @@ func TestFrameLinesExactWidth(t *testing.T) {
 // aimed at the session pane: ─╯ above, ─╮ below, open right edge between.
 func TestFrameTabCutout(t *testing.T) {
 	l := ComputeLayout(32, 40)
-	lines := strings.Split(stripANSI(RenderSidebar(l, twoSessions(), nil, 0, false, false)), "\n")
+	lines := strings.Split(stripANSI(RenderSidebar(l, twoSessions(), nil, "bd list", 0, false, false)), "\n")
 
 	row0 := l.sessionRow0()
 	top, bot := row0-1, row0+linesPerSession
@@ -78,7 +78,7 @@ func TestFrameTabCutout(t *testing.T) {
 // Focused, the whole frame is one solid thick box: keys are here.
 func TestFrameFocusedBox(t *testing.T) {
 	l := ComputeLayout(32, 40)
-	lines := strings.Split(stripANSI(RenderSidebar(l, twoSessions(), nil, 0, true, false)), "\n")
+	lines := strings.Split(stripANSI(RenderSidebar(l, twoSessions(), nil, "bd list", 0, true, false)), "\n")
 	if !strings.HasPrefix(lines[0], "┏") || !strings.HasSuffix(lines[0], "┓") {
 		t.Errorf("top frame row = %q, want ┏━…┓", lines[0])
 	}

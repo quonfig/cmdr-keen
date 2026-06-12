@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/quonfig/cmdr-keen/internal/config"
 	"github.com/quonfig/cmdr-keen/internal/reg"
 	"github.com/quonfig/cmdr-keen/internal/tmuxctl"
 )
@@ -14,7 +15,7 @@ import (
 func testModel() *Model {
 	t := &tmuxctl.Server{Socket: "keen-test-none"}
 	mgr := reg.NewManager(t, "%0", "@0", "/tmp/keen-test-none.sock", "true", SidebarPaneWidth)
-	return NewModel(mgr, ".", []string{"true"})
+	return NewModel(mgr, ".", []string{"true"}, config.Default())
 }
 
 // runeKey builds a single-rune key message for driving the key handlers.

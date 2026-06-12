@@ -4,6 +4,27 @@ All notable changes to keen. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions follow semver
 (pre-1.0: minor bumps may break things).
 
+## [Unreleased]
+
+### Added
+- **Config file.** keen's hardcoded commands can now be swapped via
+  `~/.config/keen/config.json` (global) and `.keen.json` in the launch
+  directory (per-directory, field-by-field override). Four fields, all
+  optional — zero config still means Claude Code + bd, unchanged:
+  - `session_command` — what each new session runs (default
+    `["claude", "--permission-mode", "auto"]`); `keen -- <cmd>` still wins.
+  - `tasks_command` — fills the sidebar's live-work section; any command
+    printing a JSON array of `{id, title, status, priority}` works (default
+    `["bd", "list", "--json"]`); `[]` hides the section.
+  - `tasks_label` — the section header (default derived: `bd list`).
+  - `titler_command` — produces the topic/task/phase labels; the prompt is
+    appended as the final argument (default
+    `["claude", "--model", "haiku", "-p"]`); `[]` disables LLM titling.
+
+  A malformed config file fails loudly at `keen` boot. Status colors remain
+  hook-driven and Claude-only: a non-claude `session_command` runs fine but
+  shows neutral status.
+
 ## [0.3.0] — 2026-06-11
 
 ### Changed

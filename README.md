@@ -117,6 +117,43 @@ it in.)
 Each session is spawned with hooks injected via `claude --settings <tempfile>`,
 so your global `~/.claude` is never modified.
 
+## Configuration (optional)
+
+keen needs zero config — out of the box it runs Claude Code and shows bd
+issues. If you want different commands, two JSON files are consulted:
+
+- `~/.config/keen/config.json` — global (respects `XDG_CONFIG_HOME`)
+- `.keen.json` in the directory you launch keen from — overrides the global
+  file field by field
+
+All fields optional; these are the defaults:
+
+```jsonc
+{
+  // What each new session runs. `keen -- <cmd>` still wins over this.
+  "session_command": ["claude", "--permission-mode", "auto"],
+
+  // Fills the sidebar's live-work section: any command that prints a JSON
+  // array of {id, title, status, priority}. Set [] to hide the section.
+  "tasks_command": ["bd", "list", "--json"],
+
+  // Header above the task rows. Defaults to the command's non-flag words.
+  "tasks_label": "bd list",
+
+  // Generates the topic/task/phase labels; the prompt is appended as the
+  // final argument. Set [] to disable LLM titling (heuristic labels only).
+  "titler_command": ["claude", "--model", "haiku", "-p"]
+}
+```
+
+Config is read when an instance boots — restart keen (`q`, then `keen`; or
+`keen kill` for a hard reset) to pick up changes. A malformed file fails
+loudly at boot rather than silently reverting to defaults.
+
+One caveat for non-Claude agents: the status colors come from Claude Code's
+lifecycle hooks, so a different `session_command` (Codex, a plain shell, …)
+runs fine but its row stays neutral — no crunching/waiting/done signal.
+
 ## Controls
 
 | Action | Key |

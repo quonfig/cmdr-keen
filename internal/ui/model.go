@@ -4,6 +4,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/quonfig/cmdr-keen/internal/config"
 	"github.com/quonfig/cmdr-keen/internal/debug"
 	"github.com/quonfig/cmdr-keen/internal/hooks"
 	"github.com/quonfig/cmdr-keen/internal/reg"
@@ -67,13 +68,16 @@ type Model struct {
 
 	initialCwd  string
 	initialArgs []string
+	cfg         config.Config
 }
 
-func NewModel(mgr *reg.Manager, initialCwd string, initialArgs []string) *Model {
-	return &Model{mgr: mgr, focused: true, initialCwd: initialCwd, initialArgs: initialArgs}
+func NewModel(mgr *reg.Manager, initialCwd string, initialArgs []string, cfg config.Config) *Model {
+	return &Model{mgr: mgr, focused: true, initialCwd: initialCwd, initialArgs: initialArgs, cfg: cfg}
 }
 
-func (m *Model) Init() tea.Cmd { return tea.Batch(tick(), fetchBeadsNow(m.initialCwd)) }
+func (m *Model) Init() tea.Cmd {
+	return tea.Batch(tick(), fetchBeadsNow(m.initialCwd, m.cfg.TasksCommand))
+}
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -109,10 +113,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case beadsMsg:
 		m.beads = msg.beads
-		if msg.noBD { // no bd on PATH — stay hidden and stop polling for good
+		if msg.noBD { // disabled or not on PATH — stay hidden, stop polling
 			return m, nil
 		}
-		return m, fetchBeadsLater(m.initialCwd)
+		return m, fetchBeadsLater(m.initialCwd, m.cfg.TasksCommand)
 
 	case hooks.StatusEventMsg:
 		if st, ok := statusForEvent(msg.Event); ok {
@@ -149,12 +153,13 @@ func (m *Model) maybeSummarize(msg hooks.StatusEventMsg) tea.Cmd {
 	}
 	s.Titling = true
 	id, path, prompt, prevTopic := msg.Session, s.TranscriptPath, msg.Prompt, s.Topic
+	titlerCmd := m.cfg.TitlerCommand
 	return func() tea.Msg {
 		text := titler.TranscriptTail(path, transcriptTailChars)
 		if text == "" { // transcript not readable yet — fall back to the prompt
 			text = prompt
 		}
-		sum, err := titler.Summarize(text, prevTopic)
+		sum, err := titler.Summarize(titlerCmd, text, prevTopic)
 		if err != nil || sum.Task == "" {
 			sum.Task = titler.Heuristic(prompt)
 		}
@@ -246,5 +251,5 @@ func (m *Model) View() string {
 	if !m.ready {
 		return "starting keen…"
 	}
-	return RenderSidebar(m.layout, m.mgr.Sessions(), m.beads, m.mgr.ActiveIndex(), m.focused, m.confirmClose)
+	return RenderSidebar(m.layout, m.mgr.Sessions(), m.beads, m.cfg.TasksLabel, m.mgr.ActiveIndex(), m.focused, m.confirmClose)
 }
